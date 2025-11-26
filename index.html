@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pro User App (Fixed)</title>
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Telegram SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <style>
+        :root {
+            --primary: #008855;
+            --bg: #f3f4f6;
+            --white: #ffffff;
+            --shadow: 0 2px 8px rgba(0,0,0,0.08);
+            --red: #ef4444;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Hind Siliguri', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: #cbd5e1; display: flex; justify-content: center; height: 100vh; }
+        .app { width: 100%; max-width: 420px; background: var(--bg); height: 100%; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+        /* HEADER */
+        .header { background: var(--white); padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow); }
+        .user-info { display: flex; gap: 10px; align-items: center; }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; background: #dcfce7; display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--primary); border: 1px solid var(--primary); }
+
+        /* CONTENT */
+        .content { flex: 1; overflow-y: auto; padding: 15px; padding-bottom: 80px; }
+        .card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: var(--shadow); }
+        
+        /* BALANCE */
+        .bal-card { background: linear-gradient(135deg, var(--primary), #005f3b); color: white; text-align: center; padding: 25px; }
+        .action-btn { background: rgba(255,255,255,0.2); padding: 8px 20px; border-radius: 50px; display: inline-block; margin-top: 10px; cursor: pointer; border: 1px solid rgba(255,255,255,0.5); }
+
+        /* DASHBOARD GRID */
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .item { background: white; padding: 15px 5px; border-radius: 12px; text-align: center; cursor: pointer; box-shadow: var(--shadow); }
+        .item:active { transform: scale(0.95); }
+
+        /* GAME CARD */
+        .game-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .game-item { background: white; padding: 15px; border-radius: 12px; text-align: center; cursor: pointer; box-shadow: var(--shadow); }
+        
+        /* TASK ITEM */
+        .task-item { background: white; padding: 12px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow); }
+        .task-btn { background: #dcfce7; color: var(--primary); padding: 6px 15px; border-radius: 5px; border: none; font-weight: bold; cursor: pointer; }
+        
+        /* SHOP ITEM */
+        .cat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .cat-box { background: white; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; box-shadow: var(--shadow); }
+        .prod-row { background: white; padding: 10px; border-radius: 10px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center; box-shadow: var(--shadow); }
+
+        /* NAV */
+        .nav { position: absolute; bottom: 0; width: 100%; max-width: 420px; height: 65px; background: white; display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #eee; z-index: 50; }
+        .nav-item { text-align: center; color: #666; width: 25%; cursor: pointer; }
+        .nav-item.active { color: var(--primary); font-weight: bold; }
+        .nav-item i { font-size: 20px; display: block; margin-bottom: 2px; }
+
+        /* UTILS */
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 100; }
+        .modal-box { background: white; width: 85%; padding: 20px; border-radius: 15px; text-align: center; position: relative; }
+        .close { position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; }
+        .input-box { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+        .btn-main { width: 100%; padding: 10px; background: var(--primary); color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        .error-message { color: var(--red); font-size: 12px; margin-top: -10px; margin-bottom: 10px; }
+
+        /* GAME SPECIFIC */
+        .wheel { width: 150px; height: 150px; border-radius: 50%; border: 5px solid white; margin: 15px auto; background: conic-gradient(red, yellow, green, blue, orange, purple); transition: transform 3s ease-out; }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <!-- HEADER (Visible by default) -->
+    <div id="app-header" class="header">
+        <div class="user-info">
+            <div class="avatar">U</div>
+            <div><b id="u-name">Loading...</b><br><small id="u-id">ID: ...</small></div>
+        </div>
+        <i class="fas fa-sync" onclick="location.reload()"></i>
+    </div>
+
+    <!-- 1. HOME -->
+    <!-- Note: Initial content is active, and data will populate via onSnapshot -->
+    <div id="home" class="content page active">
+        <div class="card bal-card">
+            <small>বর্তমান ব্যালেন্স</small>
+            <div style="font-size:34px; font-weight:bold;">৳ <span id="bal">0.00</span></div>
+            <div class="action-btn" onclick="nav('withdraw')">টাকা তুলুন</div>
+        </div>
+
+        <h4>মেনু ড্যাশবোর্ড</h4><br>
+        <div class="grid">
+            <div class="item" onclick="nav('games')"><i class="fas fa-gamepad" style="font-size:24px; color:#8b5cf6;"></i><br>গেমস</div>
+            <div class="item" onclick="nav('tasks')"><i class="fas fa-list-check" style="font-size:24px; color:#0ea5e9;"></i><br>কাজ</div>
+            <div class="item" onclick="nav('shop')"><i class="fas fa-shopping-bag" style="font-size:24px; color:#f97316;"></i><br>শপিং</div>
+            <div class="item" onclick="nav('refer')"><i class="fas fa-users" style="font-size:24px; color:#ef4444;"></i><br>রেফার</div>
+            <div class="item" onclick="nav('offer')"><i class="fas fa-gift" style="font-size:24px; color:#10b981;"></i><br>অফার</div>
+            <div class="item" onclick="window.open('https://t.me/support')"><i class="fas fa-headset" style="font-size:24px; color:#333;"></i><br>সাপোর্ট</div>
+        </div>
+    </div>
+
+    <!-- 2. GAMES (4 FIXED GAMES) -->
+    <div id="games" class="content page">
+        <h4>গেমস জোন (দৈনিক ১ বার)</h4><br>
+        <div class="game-grid">
+            <div class="game-item" onclick="checkGameLimit('math')">
+                <i class="fas fa-calculator" style="font-size:30px; color:#8b5cf6;"></i><br><b>অংক কুইজ</b><br><small>Win ৳2.00</small>
+            </div>
+            <div class="game-item" onclick="checkGameLimit('spin')">
+                <i class="fas fa-fan fa-spin" style="font-size:30px; color:#ec4899;"></i><br><b>লাকি স্পিন</b><br><small>Win ৳5.00</small>
+            </div>
+            <div class="game-item" onclick="checkGameLimit('scratch')">
+                <i class="fas fa-eraser" style="font-size:30px; color:#f59e0b;"></i><br><b>স্ক্র্যাচ কার্ড</b><br><small>Win ৳1.00</small>
+            </div>
+            <div class="game-item" onclick="checkGameLimit('slot')">
+                <i class="fas fa-dice" style="font-size:30px; color:#10b981;"></i><br><b>স্লট মেশিন</b><br><small>Win ৳5.00</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. TASKS (ONE TIME) -->
+    <div id="tasks" class="content page">
+        <h4>আজকের কাজ</h4><br>
+        <div id="task-list">
+            <p style="text-align:center; color:#666;">লোড হচ্ছে...</p>
+        </div>
+    </div>
+
+    <!-- 4. SHOP -->
+    <div id="shop" class="content page">
+        <div id="shop-cats">
+            <h4>ক্যাটাগরি</h4><br>
+            <div class="cat-grid" id="cat-container"></div>
+        </div>
+        <div id="shop-prods" style="display:none;">
+            <button class="btn-main" onclick="backCat()" style="width:auto; padding:5px 15px; background:#666; margin-bottom:10px;">Back</button>
+            <h4 id="cat-title">প্রোডাক্ট লিস্ট</h4><br>
+            <div id="prod-container"></div>
+        </div>
+    </div>
+
+    <!-- 5. REFER -->
+    <div id="refer" class="content page">
+        <div class="card" style="text-align:center;">
+            <h3>রেফার করুন</h3>
+            <div style="background:#fff7ed; padding:10px; border-radius:8px; margin:10px 0; font-size:12px; color:#c2410c;" id="ref-note">
+                লোড হচ্ছে...
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                <div style="background:#f3f4f6; padding:10px; border-radius:8px; flex:1; margin-right:5px;">
+                    <b id="total-ref">0</b><br><small>মোট রেফার</small>
+                </div>
+                <div style="background:#f3f4f6; padding:10px; border-radius:8px; flex:1; margin-left:5px;">
+                    <b id="ref-earn">৳0.00</b><br><small>মোট আয়</small>
+                </div>
+            </div>
+            <input id="ref-link" class="input-box" readonly style="text-align:center;">
+            <button class="btn-main" onclick="copyRef()">কপি লিংক</button>
+        </div>
+    </div>
+
+    <!-- 6. WITHDRAW -->
+    <div id="withdraw" class="content page">
+        <div class="card">
+            <h3>উত্তোলন</h3>
+            <p style="font-size:12px; color:red; margin:5px 0;">মিনিমাম উইথড্র: ৳<span id="min-wd">50</span></p>
+            <select id="wd-m" class="input-box"><option>bKash</option><option>Nagad</option></select>
+            <input id="wd-n" class="input-box" placeholder="নাম্বার">
+            <input id="wd-amt" class="input-box" placeholder="পরিমাণ"> 
+            <button class="btn-main" onclick="sendWD()">সাবমিট</button>
+            <div id="wd-message" class="error-message" style="margin-top:10px;"></div>
+        </div>
+    </div>
+
+    <!-- 7. OFFER -->
+    <div id="offer" class="content page">
+        <h4>স্পেশাল অফার</h4><br>
+        <div id="offer-list"></div>
+    </div>
+
+    <!-- NAV (Visible by default) -->
+    <div id="app-nav" class="nav">
+        <div class="nav-item active" onclick="nav('home', this)"><i class="fas fa-home"></i><small>হোম</small></div>
+        <div class="nav-item" onclick="nav('games', this)"><i class="fas fa-gamepad"></i><small>গেম</small></div>
+        <div class="nav-item" onclick="nav('tasks', this)"><i class="fas fa-list-check"></i><small>কাজ</small></div>
+        <div class="nav-item" onclick="nav('shop', this)"><i class="fas fa-shopping-bag"></i><small>শপ</small></div>
+    </div>
+
+    <!-- MODALS -->
+    
+    <!-- MANUAL LOGIN MODAL (Blocks interaction until user logs in externally) -->
+    <!-- This modal will be shown instead of the content if external login is needed -->
+    <div id="manual-login-modal" class="modal" style="display:none; z-index: 200;">
+        <div class="modal-box">
+            <h3 style="color:var(--primary);">অ্যাকাউন্ট যাচাইকরণ</h3>
+            <p style="color:#666; margin-top:10px;">টেলিগ্রামের বাইরে থেকে এসেছেন। দয়া করে একটি ইউজারনেম দিয়ে লগইন করুন।</p>
+            <input type="text" id="usernameInput" class="input-box" placeholder="আপনার ইউজারনেম (কমপক্ষে ৫ অক্ষর)">
+            <div id="loginError" class="error-message" style="display:none;"></div>
+            <button id="manualLoginBtn" class="btn-main">লগইন করুন</button>
+        </div>
+    </div>
+
+    <!-- Timer Modal -->
+    <div id="timer-modal" class="modal" style="background:rgba(0,0,0,0.9); color:white; flex-direction:column;">
+        <div style="font-size:40px; font-weight:bold; border:4px solid white; border-radius:50%; width:80px; height:80px; display:flex; align-items:center; justify-content:center;" id="timer-count">10</div>
+        <p style="margin-top:10px;">যাচাই করা হচ্ছে...</p>
+    </div>
+
+    <div id="math-modal" class="modal"><div class="modal-box"><span class="close" onclick="cls('math-modal')">&times;</span><h3>অংক কুইজ</h3><h1 id="math-q"></h1><input id="math-a" class="input-box"><button class="btn-main" onclick="subMath()">সাবমিট</button></div></div>
+    <div id="spin-modal" class="modal"><div class="modal-box"><span class="close" onclick="cls('spin-modal')">&times;</span><h3>স্পিন</h3><div class="wheel" id="w-el"></div><button class="btn-main" style="margin-top:15px;" onclick="runSpin()">ঘোরান</button></div></div>
+    <div id="scratch-modal" class="modal"><div class="modal-box"><span class="close" onclick="cls('scratch-modal')">&times;</span><h3>স্ক্র্যাচ</h3><div style="height:100px; background:#999; margin:15px 0; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold;" onclick="runScratch(this)">ঘষুন</div></div></div>
+    <div id="slot-modal" class="modal"><div class="modal-box"><span class="close" onclick="cls('slot-modal')">&times;</span><h3>স্লট</h3><div style="font-size:40px; margin:15px;">🍒 🍋 🍇</div><button class="btn-main" onclick="runSlot()">স্পিন</button></div></div>
+    
+    <div id="buy-modal" class="modal"><div class="modal-box"><span class="close" onclick="cls('buy-modal')">&times;</span><h3>অর্ডার</h3><p id="b-n"></p><h2 style="color:orange" id="b-p"></h2><div id="dyn-inp"></div><button class="btn-main" onclick="conBuy()">কনফার্ম</button></div></div>
+
+</div>
+
+<script type="module">
+    // --- Configuration ---
+    const TELEGRAM_BOT_TOKEN = "8538604837:AAGHko0lHJHWbCJ8Nsiy08aBcAcPE9rqVCk";
+    const ADMIN_CHAT_ID = "8538604837";
+    const BOT_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    
+    // Global variables provided by the Canvas environment
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    // --- Firebase & SDK Imports ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getDatabase, ref, onValue, push, update, set, get } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+    import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    
+    setLogLevel('debug'); // Enable Firestore logging
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const fs = getFirestore(app); // Firestore for user profiles (New)
+    const rtdb = getDatabase(app); // Realtime DB for app data (Existing)
+    const tg = window.Telegram.WebApp; tg.expand();
+
+    // --- Global State ---
+    let currentUserId = null; // Firebase UID
+    let userProfile = {}; // Firestore profile data
+    let userBal = 0; // Realtime DB balance
+    let isAuthReady = false;
+
+    // --- Utility Functions ---
+    
+    function getAccountAge(creationTimestamp) {
+        if (!creationTimestamp) return 'N/A';
+        const diffTime = Math.abs(Date.now() - creationTimestamp);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays;
+    }
+
+    function showManualLogin() {
+        // Since page-loader is removed, we just show the modal
+        document.getElementById('manual-login-modal').style.display = 'flex';
+        
+        document.getElementById('manualLoginBtn').onclick = async () => {
+            const inputUsername = document.getElementById('usernameInput').value.trim();
+            const validationRegex = /^[a-zA-Z][a-zA-Z0-9_]{4,}$/; 
+
+            if (!validationRegex.test(inputUsername)) {
+                return displayLoginError('ইউজারনেমটি কমপক্ষে ৫ অক্ষরের হতে হবে এবং শুধুমাত্র ইংরেজি অক্ষর বা সংখ্যা ব্যবহার করতে হবে।');
+            }
+            
+            // Hide the modal, content will be populated when startAppListeners runs
+            document.getElementById('manual-login-modal').style.display = 'none'; 
+            await registerUser(currentUserId, inputUsername, null, 'external');
+        };
+    }
+
+    function displayLoginError(text) {
+        const errEl = document.getElementById('loginError');
+        errEl.textContent = text;
+        errEl.style.display = 'block';
+    }
+
+
+    // --- AUTHENTICATION & HYBRID LOGIN ---
+
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            currentUserId = user.uid;
+            await handleHybridLogin();
+        } else {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Firebase Sign-In Error:", error);
+                await signInAnonymously(auth);
+            }
+        }
+    });
+
+    async function handleHybridLogin() {
+        const isTelegram = tg.initDataUnsafe && tg.platform !== 'unknown';
+        const profileRef = doc(fs, `artifacts/${appId}/users/${currentUserId}/profile`, 'data');
+        const profileSnap = await getDoc(profileRef);
+        
+        let uniqueId, username, referralCode;
+
+        if (isTelegram) {
+            const tgUser = tg.initDataUnsafe.user;
+            uniqueId = `tg_${tgUser.id}`;
+            username = tgUser.username || tgUser.first_name || 'TG_User';
+            referralCode = tg.initDataUnsafe.start_param || null;
+            
+            // Check if profile exists, if not, register with Telegram data
+            if (!profileSnap.exists()) {
+                await registerUser(uniqueId, username, referralCode, 'telegram');
+            } else {
+                userProfile = profileSnap.data();
+                startAppListeners();
+            }
+
+        } else if (profileSnap.exists() && profileSnap.data().source === 'external') {
+            // Existing external user
+            userProfile = profileSnap.data();
+            startAppListeners();
+
+        } else {
+            // New external user: show manual login
+            showManualLogin();
+        }
+    }
+
+    async function registerUser(uniqueId, username, referralCode, source) {
+        const profileRef = doc(fs, `artifacts/${appId}/users/${currentUserId}/profile`, 'data');
+        
+        const newUserProfile = {
+            uniqueId: uniqueId,
+            username: username,
+            source: source,
+            referralCode: currentUserId, // User's own referral code is their Firebase UID
+            referredBy: referralCode, 
+            createdAt: Date.now(),
+            totalReferrals: 0,
+            totalTasksCompleted: 0,
+        };
+        
+        try {
+            await setDoc(profileRef, newUserProfile);
+            userProfile = newUserProfile;
+            console.log("New user registered in Firestore:", username);
+
+            // Increment referrer's count in Firestore (if referred)
+            if (referralCode && referralCode !== currentUserId) { 
+                const referrerDocRef = doc(fs, `artifacts/${appId}/users/${referralCode}/profile`, 'data');
+                const referrerSnap = await getDoc(referrerDocRef);
+                if (referrerSnap.exists()) {
+                    const currentReferrals = referrerSnap.data().totalReferrals || 0;
+                    await setDoc(referrerDocRef, { totalReferrals: currentReferrals + 1 }, { merge: true });
+                }
+            }
+            startAppListeners();
+
+        } catch(e) {
+            console.error("Registration/Update Error:", e);
+            alert("অ্যাকাউন্ট সেটআপে সমস্যা হয়েছে।");
+        }
+    }
+
+    // --- MAIN APP LISTENERS ---
+
+    function startAppListeners() {
+        if (isAuthReady) return; // Only run once
+        isAuthReady = true;
+
+        // 1. Listen to Firestore Profile Data (Real-time updates for referrals/source)
+        const profileRef = doc(fs, `artifacts/${appId}/users/${currentUserId}/profile`, 'data');
+        onSnapshot(profileRef, (docSnap) => {
+            if (docSnap.exists()) {
+                userProfile = docSnap.data();
+                updateUI();
+            }
+        });
+
+        // 2. Listen to Realtime Database for Balance and RTDB Stats
+        onValue(ref(rtdb, 'users/'+currentUserId), s => {
+            const d = s.val() || {};
+            userBal = d.balance || 0;
+            document.getElementById('bal').innerText = userBal.toFixed(2);
+            document.getElementById('ref-earn').innerText = '৳'+(d.referEarn || 0).toFixed(2);
+            updateUI();
+        });
+
+        // 3. Settings Load
+        onValue(ref(rtdb, 'settings'), s => {
+            const d = s.val() || {};
+            document.getElementById('ref-note').innerText = d.referNote || "রেফার করুন!";
+            document.getElementById('min-wd').innerText = d.minWithdraw || 50;
+        });
+        
+        // 4. Tasks and Shop (as per original code structure)
+        loadTasks();
+        loadShopCategories();
+        loadOffers();
+        
+        // Hide all pages and show home (if not already done by initial active class)
+        // document.querySelectorAll('.page').forEach(p => p.style.display='none');
+        // nav('home'); // Go to Home page and ensure it's displayed
+    }
+    
+    // --- UI UPDATES ---
+    function updateUI() {
+        document.getElementById('u-name').innerText = userProfile.username || 'Guest';
+        document.getElementById('u-id').innerText = "ID: " + (userProfile.uniqueId || 'N/A');
+        document.getElementById('ref-link').value = `t.me/Pro_Earn_BD_bot?start=${currentUserId}`; // Use Firebase UID for refer code
+        document.getElementById('total-ref').innerText = userProfile.totalReferrals || 0;
+    }
+
+    // --- NAVIGATION (Original Logic) ---
+    window.nav = (id, el) => {
+        document.querySelectorAll('.page').forEach(p => p.style.display='none');
+        document.getElementById(id).style.display='block';
+        if(el) {
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            el.classList.add('active');
+        }
+    };
+    // Initial call to ensure pages are set up correctly on first load
+    document.querySelectorAll('.page').forEach(p => p.style.display='none');
+    document.getElementById('home').style.display='block';
+
+
+    // --- WITHDRAW LOGIC (MODIFIED) ---
+    window.sendWD = async () => {
+        const amt = Number(document.getElementById('wd-amt').value);
+        const min = Number(document.getElementById('min-wd').innerText);
+        const method = document.getElementById('wd-m').value;
+        const number = document.getElementById('wd-n').value;
+        const msgEl = document.getElementById('wd-message');
+
+        msgEl.style.display = 'block';
+        msgEl.style.color = 'var(--primary)';
+        msgEl.innerText = 'রিকোয়েস্ট পাঠানো হচ্ছে...';
+
+        if (!number || number.length < 10) return msgEl.innerText = '❌ সঠিক নাম্বার দিন।';
+        if (amt < min) return msgEl.innerText = `❌ মিনিমাম উইথড্র ৳${min}`;
+        if (userBal < amt) return msgEl.innerText = '❌ অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই।';
+        
+        // 1. Send Notification to Admin
+        const notificationData = {
+            ...userProfile,
+            withdrawAmount: amt,
+            withdrawMethod: method,
+            withdrawNumber: number,
+            accountAgeDays: getAccountAge(userProfile.createdAt),
+            totalTasksCompleted: userProfile.totalTasksCompleted || 0, 
+        };
+        
+        const success = await sendWithdrawalNotification(notificationData);
+        
+        if (success) {
+            // 2. Record Withdrawal in Realtime DB (Original Logic)
+            await push(ref(rtdb, 'withdraws'), { 
+                userId: currentUserId, 
+                amount: amt, 
+                number: number, 
+                method: method,
+                status:'pending',
+                timestamp: Date.now()
+            });
+
+            // 3. Deduct Balance (Only if notification sent successfully)
+            await set(ref(rtdb, `users/${currentUserId}/balance`), userBal - amt); 
+
+            msgEl.style.color = 'green';
+            msgEl.innerText = `✅ সফলভাবে ৳${amt} উইথড্র রিকোয়েস্ট পাঠানো হয়েছে।`;
+            // Clear inputs
+            document.getElementById('wd-n').value = '';
+            document.getElementById('wd-amt').value = '';
+            nav('home');
+        } else {
+            msgEl.style.color = 'var(--red)';
+            msgEl.innerText = '❌ রিকোয়েস্ট পাঠানো যায়নি। দয়া করে এডমিনের সাথে যোগাযোগ করুন।';
+        }
+    };
+
+    // Telegram Notification Sender (Copied and adapted from previous response)
+    async function sendWithdrawalNotification(data) {
+        const messageText = `
+💰 **নতুন উইথড্রল রিকোয়েস্ট!** 💰
+
+**পরিমাণ:** ${data.withdrawAmount} টাকা
+**পেমেন্ট মেথড:** ${data.withdrawMethod}
+**নাম্বার:** \`${data.withdrawNumber}\`
+**সময়:** ${new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka', hour12: true })}
+
+---
+👤 **ইউজার ডিটেলস**
+ইউজারনেম: \`${data.username}\`
+ইউনিক আইডি: \`${data.uniqueId}\`
+ফায়ারবেস UID: \`${currentUserId}\`
+সোর্স: ${data.source === 'telegram' ? 'টেলিগ্রাম (Verified)' : 'ম্যানুয়াল'}
+
+---
+📈 **এক্টিভিটি স্ট্যাটাস**
+মোট রেফারেল: ${data.totalReferrals || 0} জন
+সম্পন্ন কাজ: ${data.totalTasksCompleted || 0} টি
+একাউন্টের বয়স: ${data.accountAgeDays} দিন
+রেফার করেছেন: ${data.referredBy || 'কেউ না'}
+        `;
+
+        const payload = {
+            chat_id: ADMIN_CHAT_ID,
+            text: messageText,
+            parse_mode: 'Markdown', 
+        };
+
+        try {
+            const MAX_RETRIES = 3;
+            let attempt = 0;
+
+            while (attempt < MAX_RETRIES) {
+                const response = await fetch(BOT_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (response.ok && result.ok) return true;
+                if (response.status === 429) {
+                    const delay = Math.pow(2, attempt) * 1000 + (Math.random() * 1000); 
+                    console.warn(`Attempt ${attempt + 1} failed (429). Retrying in ${delay / 1000}s...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    attempt++;
+                } else {
+                    console.error("Telegram API Error:", result);
+                    break; 
+                }
+            }
+            return false; 
+        } catch (error) {
+            console.error("Network or Fetch Error while sending Telegram notification:", error);
+            return false;
+        }
+    }
+
+
+    // --- ORIGINAL CODE ADAPTATION (Realtime DB Logic) ---
+    // The rest of the functions from your original code are included below, 
+    // ensuring they use the correct currentUserId and rtdb instance.
+
+    let mathAns=0;
+    window.checkGameLimit = async (type) => {
+        const today = new Date().toDateString();
+        const snap = await get(ref(rtdb, `users/${currentUserId}/games/${type}`));
+        if(snap.val() === today) return alert('আজকের লিমিট শেষ! কাল খেলুন।');
+        
+        document.getElementById(type+'-modal').style.display='flex';
+        if(type==='math') {
+            let n1=Math.floor(Math.random()*10), n2=Math.floor(Math.random()*10);
+            mathAns=n1+n2; document.getElementById('math-q').innerText = n1+"+"+n2;
+        }
+    };
+
+    async function winGame(type, r) {
+        const today = new Date().toDateString();
+        await set(ref(rtdb, `users/${currentUserId}/balance`), userBal+r);
+        await set(ref(rtdb, `users/${currentUserId}/games/${type}`), today);
+        window.cls(type+'-modal');
+        alert(`জিতেছেন ৳${r}`);
+    }
+
+    window.subMath = () => { if(parseInt(document.getElementById('math-a').value)==mathAns) winGame('math', 2); else alert('ভুল'); };
+    window.runSpin = () => { document.getElementById('w-el').style.transform=`rotate(${Math.random()*3000}deg)`; setTimeout(()=>winGame('spin',5),3000); };
+    window.runScratch = (el) => { el.innerHTML='৳1.00'; el.style.background='green'; setTimeout(()=>winGame('scratch',1),1000); };
+    window.runSlot = () => winGame('slot',5);
+
+    // --- TASKS (ONE TIME) ---
+    function loadTasks() {
+        onValue(ref(rtdb, 'tasks'), async (snap) => {
+            const userTasksSnap = await get(ref(rtdb, `users/${currentUserId}/completed_tasks`));
+            const completed = userTasksSnap.val() || {};
+            const con = document.getElementById('task-list');
+            con.innerHTML = '';
+
+            snap.forEach(c => {
+                const t = c.val();
+                const isDone = completed[c.key] ? 'completed' : '';
+                const btnTxt = isDone ? 'সম্পন্ন' : 'করুন';
+                
+                con.innerHTML += `
+                <div class="task-item ${isDone}">
+                    <div><b>${t.title}</b><br><small>৳${t.reward} | ${t.time}s</small></div>
+                    <button class="task-btn" ${isDone ? 'disabled' : ''} onclick="doTask('${c.key}', ${t.reward}, ${t.time})">${btnTxt}</button>
+                </div>`;
+            });
+        });
+    }
+
+    window.doTask = (key, r, t) => {
+        // Prevent clicking on disabled/completed tasks
+        const button = event.target;
+        if(button.disabled) return;
+
+        document.getElementById('timer-modal').style.display='flex';
+        let left = t; document.getElementById('timer-count').innerText = left;
+        
+        const int = setInterval(async () => {
+            left--; document.getElementById('timer-count').innerText = left;
+            if(left <= 0) {
+                clearInterval(int);
+                document.getElementById('timer-modal').style.display='none';
+                
+                // Update Bal & Mark Complete
+                try {
+                    await update(ref(rtdb, `users/${currentUserId}`), { balance: userBal + r });
+                    await update(ref(rtdb, `users/${currentUserId}/completed_tasks`), { [key]: true });
+                    // Increment Firestore task count
+                    const currentTasks = userProfile.totalTasksCompleted || 0;
+                    await setDoc(doc(fs, `artifacts/${appId}/users/${currentUserId}/profile`, 'data'), { totalTasksCompleted: currentTasks + 1 }, { merge: true });
+
+                    alert('টাকা যোগ হয়েছে!');
+                } catch (e) {
+                    console.error("Task Completion Error:", e);
+                    alert("কাজ সম্পন্ন করতে সমস্যা হয়েছে।");
+                }
+            }
+        }, 1000);
+    };
+
+    // --- SHOP ---
+    function loadShopCategories() {
+        onValue(ref(rtdb, 'categories'), s => {
+            const c = document.getElementById('cat-container'); c.innerHTML='';
+            s.forEach(x => c.innerHTML += `<div class="cat-box" onclick="openCat('${x.key}','${x.val().name}')"><img src="${x.val().img || 'https://placehold.co/50x50/333/fff?text=C'}" width="50"><br><b>${x.val().name}</b></div>`);
+        });
+    }
+
+    window.openCat = (id, n) => {
+        document.getElementById('shop-cats').style.display='none';
+        document.getElementById('shop-prods').style.display='block';
+        document.getElementById('cat-title').innerText=n;
+        
+        onValue(ref(rtdb, 'products'), s => {
+            const p = document.getElementById('prod-container'); p.innerHTML='';
+            s.forEach(x => {
+                const d = x.val();
+                if(d.catId === id) {
+                    p.innerHTML += `<div class="prod-row"><img src="${d.img || 'https://placehold.co/60x60/f0f/fff?text=P'}" width="60"><div style="flex:1"><b>${d.name}</b><br><small style="color:orange">৳${d.price}</small></div><button class="buy-btn" onclick="buy('${d.name}',${d.price},'${d.inputType}')">Buy</button></div>`;
+                }
+            });
+        }, {onlyOnce: true});
+    };
+
+    // --- OFFERS ---
+    function loadOffers() {
+        onValue(ref(rtdb, 'products'), s => {
+            const o = document.getElementById('offer-list'); o.innerHTML='';
+            s.forEach(x => {
+                const d = x.val();
+                if(d.isOffer) {
+                    o.innerHTML += `<div class="prod-row"><img src="${d.img || 'https://placehold.co/60x60/0ff/fff?text=O'}" width="60"><div style="flex:1"><b>${d.name}</b><br><small style="color:red">OFFER ৳${d.price}</small></div><button class="buy-btn" onclick="buy('${d.name}',${d.price},'${d.inputType}')">Buy</button></div>`;
+                }
+            });
+        });
+    }
+
+    let currentBuyPrice = 0;
+    let currentBuyName = '';
+
+    window.buy = (n, p, type) => {
+        currentBuyName = n;
+        currentBuyPrice = p;
+        document.getElementById('b-n').innerText=n;
+        document.getElementById('b-p').innerText='৳'+p;
+        
+        let dynamicInputHtml = '';
+        if (type === 'uid') {
+            dynamicInputHtml = '<input id="b-in-uid" class="input-box" placeholder="UID">';
+        } else if (type === 'idpass') {
+            dynamicInputHtml = '<input id="b-in-id" class="input-box" placeholder="ID/Email"><input id="b-in-pass" class="input-box" placeholder="Pass">';
+        } else {
+            dynamicInputHtml = '<input id="b-in-info" class="input-box" placeholder="যোগাযোগের তথ্য">';
+        }
+
+        document.getElementById('dyn-inp').innerHTML = dynamicInputHtml;
+        document.getElementById('buy-modal').style.display='flex';
+    };
+
+    window.conBuy = async () => {
+        const infoUid = document.getElementById('b-in-uid')?.value || document.getElementById('b-in-id')?.value || document.getElementById('b-in-info')?.value;
+        const infoPass = document.getElementById('b-in-pass')?.value || '';
+        
+        if (!infoUid) return alert('দয়া করে তথ্য দিন।');
+
+        if(userBal < currentBuyPrice) return alert('ব্যালেন্স নেই');
+
+        try {
+            // Deduct Balance
+            await set(ref(rtdb, `users/${currentUserId}/balance`), userBal - currentBuyPrice);
+            
+            // Record Order
+            await push(ref(rtdb, 'orders'), { 
+                userId: currentUserId, 
+                username: userProfile.username,
+                prod: currentBuyName, 
+                price: currentBuyPrice,
+                info: infoUid + (infoPass ? ` | Pass: ${infoPass}` : ''), 
+                status:'pending',
+                timestamp: Date.now()
+            });
+
+            alert('অর্ডার সফল!'); 
+            window.cls('buy-modal');
+        } catch (e) {
+            console.error("Order Error:", e);
+            alert("অর্ডার দিতে সমস্যা হয়েছে।");
+        }
+    };
+
+    // UTILS
+    window.cls = (id) => document.getElementById(id).style.display='none';
+    window.backCat = () => { 
+        document.getElementById('shop-prods').style.display='none'; 
+        document.getElementById('shop-cats').style.display='block'; 
+    };
+    window.copyRef = () => { 
+        try {
+            // Use document.execCommand for better iframe compatibility
+            const copyText = document.getElementById('ref-link');
+            copyText.select();
+            copyText.setSelectionRange(0, 99999); // For mobile devices
+            document.execCommand('copy');
+            alert('কপি হয়েছে!'); 
+        } catch (e) {
+            alert('কপি করতে ব্যর্থ। ম্যানুয়ালি কপি করুন।');
+        }
+    };
+    
+</script>
+</body>
+</html>
